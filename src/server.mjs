@@ -15,6 +15,7 @@ import { registerImageChunkTools } from "./tools/image-chunk-upload.mjs";
 import { registerConversationTools } from "./tools/conversations.mjs";
 import { registerResources } from "./resources.mjs";
 import { consumeUpload } from "./template-upload-browser.mjs";
+import { handleDeliveryWebhook, deliveryConfig } from "./delivery-webhooks.mjs";
 
 export function buildServer() {
   const server = new McpServer({
@@ -47,7 +48,7 @@ async function startHttp() {
   const port = Number(process.env.PORT || 3000);
   const host = process.env.HOST || "0.0.0.0";
   const path = process.env.MCP_HTTP_PATH || "/mcp";
-  const bearer = process.env.MCP_BEARER_TOKEN; // optional shared secret
+  const bearer = process.env.MCP_BEARER_TOKEN; // optional unless delivery webhooks are enabled
 
   const sessions = new Map(); // sessionId -> { transport, server }
 
@@ -56,7 +57,14 @@ async function startHttp() {
 
     if (url.pathname === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, sessions: sessions.size }));
+      res.end(JSON.stringify({ ok: true, sessions: sessions.size, delivery_webhooks_configured: deliveryConfig() }));
+      return;
+    }
+
+    // Meta callbacks do not carry the MCP bearer. The handler instead verifies
+    // the GET challenge token or POST raw-body HMAC, and fails closed if unset.
+    if (url.pathname === "/webhooks/whatsapp") {
+      await handleDeliveryWebhook(req, res, url);
       return;
     }
 
@@ -117,7 +125,7 @@ async function startHttp() {
   });
 
   httpServer.listen(port, host, () => {
-    const authNote = bearer ? " (Bearer auth required)" : " (no auth — set MCP_BEARER_TOKEN to require)";
+    const authNote = bearer ? " (Bearer auth required)" : " (no auth: set MCP_BEARER_TOKEN to require)";
     console.error(`whatsapp-business MCP listening on http://${host}:${port}${path}${authNote}`);
   });
 }

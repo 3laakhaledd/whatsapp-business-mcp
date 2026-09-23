@@ -9,6 +9,7 @@ import {
   validateTemplateName,
   validateLanguageCode,
 } from "../api.mjs";
+import { getDeliveryStatus } from "../delivery-webhooks.mjs";
 
 export function registerMessagingTools(server) {
   server.tool(
@@ -26,10 +27,9 @@ export function registerMessagingTools(server) {
       "- `to` must be E.164 (digits only, country code first), e.g. 351912345678.",
       "- `components_json` is required when the template has variables ({{1}}, header media, buttons).",
       "",
-      "Returns: the WhatsApp message ID (wamid) on success, which can be used with wa_get_message_status.",
-      "",
-      "Limitations: templates with header media require uploaded media handles; delivery/read status",
-      "is delivered asynchronously via webhooks — this tool returns only the accepted message ID.",
+      "Returns: the accepted WhatsApp message ID (wamid); acceptance is not delivery.",
+      "Use wa_get_message_status to read retained webhook receipts after callbacks arrive.",
+      "Header media must be supplied at send time. Never infer delivery from acceptance.",
     ].join("\n"),
     {
       phone_number_id: z
@@ -89,46 +89,25 @@ export function registerMessagingTools(server) {
   server.tool(
     "wa_get_message_status",
     [
-      "Look up information about a previously sent WhatsApp message by its ID.",
-      "",
-      "Use this after wa_send_template to confirm Graph API received the message. Note that",
-      "WhatsApp delivery/read status (sent → delivered → read) is pushed asynchronously via",
-      "webhooks; the Graph API does not expose a polling endpoint for those transitions. This",
-      "tool retrieves the message resource directly and surfaces whatever Meta returns.",
-      "",
-      "Inputs: the wamid returned by wa_send_template.",
+      "Read verified WhatsApp delivery webhook receipts saved by this server for a message ID.",
+      "Returns latest status, timestamp, failure codes/details and retained event history.",
+      "Unknown means no retained receipt, NOT delivered or failed. No Graph API polling is used.",
+      "Requires configured webhook secrets, persistent storage, WABA scope and MCP bearer auth.",
+      "Meta must subscribe this app to the WABA and the messages webhook field separately.",
+      "Receipts are retained for 7 days, capped at 1,000 messages / 10 events each. No backfill.",
     ].join("\n"),
     {
-      message_id: z
-        .string()
-        .min(1)
-        .describe("The wamid returned when the message was sent (e.g. wamid.XXXX...)"),
-      fields: z
-        .string()
-        .optional()
-        .default("id,status,recipient_id,timestamp,errors")
-        .describe("Comma-separated fields to request"),
+      message_id: z.string().min(1).max(512).describe("The wamid returned when the message was sent"),
+      fields: z.string().optional().default("id,status,recipient_id,timestamp,errors")
+        .describe("Legacy compatibility parameter; ignored. Returns saved receipt and history, without recipient number."),
     },
-    { annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true } },
-    async ({ message_id, fields }) => {
-      const encoded = encodeURIComponent(message_id);
-      const data = await callApi("GET", `/${encoded}?fields=${fields}`);
-      if (data.error) {
-        if (data.error.http_status === 404) {
-          return {
-            isError: true,
-            content: [
-              {
-                type: "text",
-                text:
-                  "Message not found via Graph API lookup. Note: delivery status is normally delivered via webhooks, not by polling. Configure a webhook subscription on the WABA to receive status callbacks.",
-              },
-            ],
-          };
-        }
-        return errorResponse(data);
+    { annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false } },
+    async ({ message_id }) => {
+      try {
+        return jsonResponse(await getDeliveryStatus(message_id));
+      } catch {
+        return { isError: true, content: [{ type: "text", text: "Delivery receipt storage unavailable. No delivery conclusion can be drawn." }] };
       }
-      return jsonResponse(data);
     }
   );
 }
