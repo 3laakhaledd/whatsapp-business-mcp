@@ -11,13 +11,14 @@ import { registerTemplateTools } from "./tools/templates.mjs";
 import { registerMessagingTools } from "./tools/messaging.mjs";
 import { registerGenericTools } from "./tools/generic.mjs";
 import { registerUploadLinkTools } from "./tools/upload-link.mjs";
+import { registerConversationTools } from "./tools/conversations.mjs";
 import { registerResources } from "./resources.mjs";
 import { consumeUpload } from "./template-upload-browser.mjs";
 
 export function buildServer() {
   const server = new McpServer({
     name: "whatsapp-business",
-    version: "1.1.0",
+    version: "1.2.0",
   });
 
   registerAccountTools(server);
@@ -25,6 +26,7 @@ export function buildServer() {
   registerMessagingTools(server);
   registerGenericTools(server);
   registerUploadLinkTools(server);
+  registerConversationTools(server);
   registerResources(server);
 
   return server;
@@ -113,7 +115,7 @@ async function startHttp() {
   });
 
   httpServer.listen(port, host, () => {
-    const authNote = bearer ? " (Bearer auth required)" : " (no auth — set MCP_BEARER_TOKEN to require)";
+    const authNote = bearer ? " (Bearer auth required)" : " (no auth \u2014 set MCP_BEARER_TOKEN to require)";
     console.error(`whatsapp-business MCP listening on http://${host}:${port}${path}${authNote}`);
   });
 }
