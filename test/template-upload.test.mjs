@@ -1,9 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { uploadTemplateImage, validateSourceUrl, isPublicV4, decodeImage, imageType } from "../src/template-upload.mjs";
+import { createUploadSession, consumeUpload } from "../src/template-upload-browser.mjs";
+import { createHash } from "node:crypto";
+import { Readable } from "node:stream";
 
 process.env.WHATSAPP_TOKEN = "test-token-not-real";
 delete process.env.WHATSAPP_APP_ID;
+process.env.MCP_UPLOAD_SECRET = "0123456789abcdef";
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1cAAAAASUVORK5CYII=", "base64");
 const input = { file_base64: png.toString("base64"), app_id: "123", file_name: "reminder.png" };
 function fakeGraph(responses, calls = []) {
@@ -110,4 +114,17 @@ test("raw network exceptions are sanitized", async () => {
   const result = await uploadTemplateImage(input, { fetch: async () => { throw new Error("token=test-token-not-real"); } });
   assert.ok(result.error);
   assert.ok(!JSON.stringify(result).includes("test-token-not-real"));
+});
+
+test("one-use upload link verifies checksum before intake", async () => {
+  const sha256 = createHash("sha256").update(png).digest("hex");
+  const session = createUploadSession({ expectedSha256: sha256, fileName: "reminder.png", contentType: "image/png" });
+  const req = new Readable();
+  req._read = () => {};
+  req.push(png);
+  req.push(null);
+  const result = await consumeUpload(req, session.token);
+  assert.deepEqual(result.bytes, png);
+  assert.equal(result.sha256, sha256);
+  await assert.rejects(() => consumeUpload(Readable.from([png]), session.token));
 });
