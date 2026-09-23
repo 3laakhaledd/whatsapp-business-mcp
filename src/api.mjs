@@ -7,6 +7,12 @@ export function getToken() {
   return token;
 }
 
+export function getPageToken() {
+  const token = process.env.META_PAGE_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN;
+  if (!token) throw new Error("META_PAGE_ACCESS_TOKEN (or WHATSAPP_TOKEN) env var not set");
+  return token;
+}
+
 // E.164: + optional, 1-15 digits, country code starts with non-zero.
 const E164_RE = /^\+?[1-9]\d{6,14}$/;
 export function validatePhoneE164(value, field = "phone") {
@@ -57,12 +63,12 @@ function classifyHttpError(status, errBody) {
   return { kind: "api_error", hint: null };
 }
 
-export async function callApi(method, path, body = null) {
+async function _callWithToken(token, method, path, body = null) {
   const url = `${BASE_URL}${path}`;
   const opts = {
     method,
     headers: {
-      Authorization: `Bearer ${getToken()}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
   };
@@ -107,6 +113,14 @@ export async function callApi(method, path, body = null) {
   }
 
   return data;
+}
+
+export async function callApi(method, path, body = null) {
+  return _callWithToken(getToken(), method, path, body);
+}
+
+export async function callPageApi(method, path, body = null) {
+  return _callWithToken(getPageToken(), method, path, body);
 }
 
 export function errorResponse(data) {
