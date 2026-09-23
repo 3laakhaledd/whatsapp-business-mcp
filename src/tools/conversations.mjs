@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { callApi, errorResponse, jsonResponse } from "../api.mjs";
+import { callPageApi, errorResponse, jsonResponse } from "../api.mjs";
 
 export function registerConversationTools(server) {
   // ── Facebook Page Conversations ──────────────────────────────
@@ -17,7 +17,7 @@ export function registerConversationTools(server) {
       if (!pid) return errorResponse({ error: { message: "No page_id provided and META_PAGE_ID env var not set", kind: "config_error" } });
       let path = `/${pid}/conversations?fields=participants,updated_time,message_count,id&limit=${limit}`;
       if (after) path += `&after=${encodeURIComponent(after)}`;
-      const data = await callApi("GET", path);
+      const data = await callPageApi("GET", path);
       if (data.error) return errorResponse(data);
       const conversations = (data.data || []).map((conv) => ({
         conversation_id: conv.id,
@@ -43,7 +43,7 @@ export function registerConversationTools(server) {
     async ({ conversation_id, limit, after }) => {
       let path = `/${conversation_id}/messages?fields=message,from,created_time,attachments&limit=${limit}`;
       if (after) path += `&after=${encodeURIComponent(after)}`;
-      const data = await callApi("GET", path);
+      const data = await callPageApi("GET", path);
       if (data.error) return errorResponse(data);
       const messages = (data.data || []).map((msg) => ({
         id: msg.id,
@@ -65,7 +65,7 @@ export function registerConversationTools(server) {
       user_id: z.string().describe("The participant user ID from fb_list_conversations or fb_get_conversation_messages"),
     },
     async ({ user_id }) => {
-      const data = await callApi("GET", `/${user_id}?fields=name,first_name,last_name,profile_pic`);
+      const data = await callPageApi("GET", `/${user_id}?fields=name,first_name,last_name,profile_pic`);
       if (data.error) return errorResponse(data);
       return jsonResponse(data);
     }
@@ -86,7 +86,7 @@ export function registerConversationTools(server) {
       if (!igId) return errorResponse({ error: { message: "No ig_user_id provided and META_INSTAGRAM_ACCOUNT_ID env var not set", kind: "config_error" } });
       let path = `/${igId}/conversations?fields=participants,updated_time,id&platform=instagram&limit=${limit}`;
       if (after) path += `&after=${encodeURIComponent(after)}`;
-      const data = await callApi("GET", path);
+      const data = await callPageApi("GET", path);
       if (data.error) return errorResponse(data);
       const conversations = (data.data || []).map((conv) => ({
         conversation_id: conv.id,
@@ -111,7 +111,7 @@ export function registerConversationTools(server) {
     async ({ conversation_id, limit, after }) => {
       let path = `/${conversation_id}/messages?fields=message,from,created_time&limit=${limit}`;
       if (after) path += `&after=${encodeURIComponent(after)}`;
-      const data = await callApi("GET", path);
+      const data = await callPageApi("GET", path);
       if (data.error) return errorResponse(data);
       const messages = (data.data || []).map((msg) => ({
         id: msg.id,
