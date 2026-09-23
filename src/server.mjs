@@ -10,6 +10,7 @@ import { registerAccountTools } from "./tools/accounts.mjs";
 import { registerTemplateTools } from "./tools/templates.mjs";
 import { registerMessagingTools } from "./tools/messaging.mjs";
 import { registerGenericTools } from "./tools/generic.mjs";
+import { registerUploadLinkTools } from "./tools/upload-link.mjs";
 import { registerResources } from "./resources.mjs";
 import { consumeUpload } from "./template-upload-browser.mjs";
 
@@ -23,6 +24,7 @@ export function buildServer() {
   registerTemplateTools(server);
   registerMessagingTools(server);
   registerGenericTools(server);
+  registerUploadLinkTools(server);
   registerResources(server);
 
   return server;
