@@ -11,6 +11,7 @@ import { registerTemplateTools } from "./tools/templates.mjs";
 import { registerMessagingTools } from "./tools/messaging.mjs";
 import { registerGenericTools } from "./tools/generic.mjs";
 import { registerResources } from "./resources.mjs";
+import { consumeUpload } from "./template-upload-browser.mjs";
 
 export function buildServer() {
   const server = new McpServer({
@@ -50,6 +51,19 @@ async function startHttp() {
     if (url.pathname === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, sessions: sessions.size }));
+      return;
+    }
+
+    const uploadMatch = url.pathname.match(/^\/upload\/template-image\/([A-Za-z0-9_-]{43})$/);
+    if (req.method === "POST" && uploadMatch) {
+      try {
+        const uploaded = await consumeUpload(req, uploadMatch[1]);
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ received: true, file_name: uploaded.fileName, bytes: uploaded.bytes.length, sha256: uploaded.sha256 }));
+      } catch (error) {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: error.message }));
+      }
       return;
     }
 
