@@ -19,7 +19,7 @@ function engine() {
 const text = value => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
 const safe = fn => async args => {
   try { return text(await fn(args)); }
-  catch (e) { return { isError: true, content: [{ type: 'text', text: e.code ? 'Batch storage unavailable: no automatic retries. Check persistent volume and lock.' : e.message }] }; }
+  catch (e) { return { isError: true, content: [{ type: 'text', text: e.code ? `Batch storage error [${e.code}]: ${e.message}` : e.message }] }; }
 };
 export function registerBulkMessagingTools(server) {
   server.tool('wa_prepare_template_batch',
