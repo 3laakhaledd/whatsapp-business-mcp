@@ -9,6 +9,7 @@ import { createServer } from "node:http";
 import { registerAccountTools } from "./tools/accounts.mjs";
 import { registerTemplateTools } from "./tools/templates.mjs";
 import { registerMessagingTools } from "./tools/messaging.mjs";
+import { registerBulkMessagingTools } from "./tools/bulk-messaging.mjs";
 import { registerGenericTools } from "./tools/generic.mjs";
 import { registerUploadLinkTools } from "./tools/upload-link.mjs";
 import { registerImageChunkTools } from "./tools/image-chunk-upload.mjs";
@@ -26,6 +27,7 @@ export function buildServer() {
   registerAccountTools(server);
   registerTemplateTools(server);
   registerMessagingTools(server);
+  registerBulkMessagingTools(server);
   registerGenericTools(server);
   registerUploadLinkTools(server);
   registerImageChunkTools(server);
