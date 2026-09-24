@@ -13,6 +13,8 @@ ENV MCP_TRANSPORT=http \
 
 EXPOSE 3000
 
+RUN mkdir -p /data/batches && chown -R node:node /data
+
 USER node
 
 CMD ["node", "src/server.mjs"]
