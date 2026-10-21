@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { dirname, isAbsolute } from "node:path";
+import { extractTemplateEvents, syncTemplateEvents } from "./template-status-sync.mjs";
 
 /*
  * Single Railway replica. Mount a persistent volume at /data and set:
@@ -12,6 +13,8 @@ import { dirname, isAbsolute } from "node:path";
  * Meta: configure https://<host>/webhooks/whatsapp with the verify token,
  * subscribe to whatsapp_business_account's messages field and subscribe
  * the app to the WABA. Deploying does NOT configure Meta or send messages.
+ * Template review events (message_template_status_update, template_category_update)
+ * are mirrored to ClickUp when CLICKUP_API_TOKEN is set; see template-status-sync.mjs.
  * No backfill. Keep one replica: use a shared database before scaling.
  * All clients sharing the MCP bearer can read this WABA's delivery receipts.
  * Retention: 7 days, at most 1,000 messages and 10 events per message.
@@ -142,7 +145,7 @@ function readBody(req) {
     req.on("data", data); req.on("end", end); req.on("error", fail); req.on("aborted", aborted);
   });
 }
-export async function handleDeliveryWebhook(req, res, url, env = process.env, store) {
+export async function handleDeliveryWebhook(req, res, url, env = process.env, store, templateSync) {
   if (!deliveryConfig(env)) return reply(res, 503, "Delivery webhooks not configured");
   if (req.method === "GET") {
     const q = url.searchParams, challenge = q.get("hub.challenge");
@@ -161,9 +164,19 @@ export async function handleDeliveryWebhook(req, res, url, env = process.env, st
   try {
     const events = extractStatuses(payload, env.WHATSAPP_WABA_ID);
     if (events.length) await (store || storeFor(env)).ingest(events);
-    return reply(res, 200, "EVENT_RECEIVED");
   } catch {
     // No success acknowledgement on failed persistence. No private payload logging.
     return reply(res, 503, "Delivery storage unavailable; retry");
   }
+  const templateEvents = extractTemplateEvents(payload, env.WHATSAPP_WABA_ID);
+  if (templateEvents.length) {
+    try {
+      await (templateSync || syncTemplateEvents)(templateEvents, env);
+    } catch (e) {
+      // Ask Meta to retry only on transient ClickUp failures; delivery receipts above are idempotent.
+      if (e?.retryable) return reply(res, 503, "Template sync unavailable; retry");
+      console.error("Template status sync failed:", e?.message || "unknown error");
+    }
+  }
+  return reply(res, 200, "EVENT_RECEIVED");
 }
