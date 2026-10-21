@@ -135,16 +135,17 @@ export async function syncTemplateEvents(events, env = process.env, deps = {}) {
       ? { field: statusField, option: optionFor(statusField, STATUS_LABELS[ev.event]) }
       : { field: categoryField, option: optionFor(categoryField, CATEGORY_LABELS[ev.category]) };
     for (const task of matches) {
-      // Meta retries deliveries; skip the comment when the field already shows this value.
+      // Meta retries deliveries; skip when the field already shows this value. The comment is
+      // written before the field so a failed comment is retried instead of being skipped.
       if (target.option && sameOption(fieldValue(task, target.field), target.option)) continue;
+      await clickup(`/task/${task.id}/comment`, {
+        method: "POST", body: JSON.stringify({ comment_text: commentFor(ev), notify_all: false }),
+      });
       if (target.field && target.option) {
         await clickup(`/task/${task.id}/field/${target.field.id}`, {
           method: "POST", body: JSON.stringify({ value: target.option.id }),
         });
       }
-      await clickup(`/task/${task.id}/comment`, {
-        method: "POST", body: JSON.stringify({ comment_text: commentFor(ev), notify_all: true }),
-      });
       updated++;
     }
   }
