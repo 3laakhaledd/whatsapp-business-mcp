@@ -62,10 +62,10 @@ test("updates Meta Status and comments on the matching task only", async () => {
   assert.equal(result.updated, 1);
   const writes = calls.filter(c => c.method === "POST");
   assert.equal(writes.length, 2);
-  assert.match(writes[0].url, /\/task\/t1\/field\/f-status$/);
-  assert.deepEqual(writes[0].body, { value: "opt-approved" });
-  assert.match(writes[1].url, /\/task\/t1\/comment$/);
-  assert.match(writes[1].body.comment_text, /reminder_oct is now APPROVED/);
+  assert.match(writes[0].url, /\/task\/t1\/comment$/);
+  assert.match(writes[0].body.comment_text, /reminder_oct is now APPROVED/);
+  assert.match(writes[1].url, /\/task\/t1\/field\/f-status$/);
+  assert.deepEqual(writes[1].body, { value: "opt-approved" });
   assert.ok(calls.every(c => c.auth === ENV.CLICKUP_API_TOKEN));
 });
 
@@ -74,6 +74,16 @@ test("skips duplicate retries when the field already shows the status", async ()
   const result = await syncTemplateEvents(extractTemplateEvents(statusPayload(), WABA), ENV, { fetch });
   assert.equal(result.updated, 0);
   assert.equal(calls.filter(c => c.method === "POST").length, 0);
+});
+
+test("a failed comment leaves the field untouched so Meta's retry posts both", async () => {
+  const { fetch: base, calls } = fakeClickUp();
+  const fetch = async (url, options = {}) => {
+    if (url.endsWith("/comment")) return { ok: false, status: 500, json: async () => ({}) };
+    return base(url, options);
+  };
+  await assert.rejects(syncTemplateEvents(extractTemplateEvents(statusPayload(), WABA), ENV, { fetch }), e => e.retryable === true);
+  assert.equal(calls.filter(c => c.method === "POST" && c.url.includes("/field/")).length, 0);
 });
 
 test("category update sets Meta Category", async () => {
