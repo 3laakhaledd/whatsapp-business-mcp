@@ -80,11 +80,11 @@ export function commentFor(ev) {
   return `Meta update: ${name} is now ${ev.event}.${reason}${detail} Received ${when}. Logged automatically by the WhatsApp webhook; no messages were sent.`;
 }
 
-function optionFor(field, label) {
+export function optionFor(field, label) {
   return (field?.type_config?.options || []).find(o => o.name === label) || null;
 }
 
-function sameOption(current, option) {
+export function sameOption(current, option) {
   if (current === undefined || current === null || !option) return false;
   return String(current) === String(option.id) || String(current) === String(option.orderindex);
 }

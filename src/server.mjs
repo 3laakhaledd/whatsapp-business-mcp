@@ -17,6 +17,7 @@ import { registerConversationTools } from "./tools/conversations.mjs";
 import { registerResources } from "./resources.mjs";
 import { consumeUpload } from "./template-upload-browser.mjs";
 import { handleDeliveryWebhook, deliveryConfig } from "./delivery-webhooks.mjs";
+import { startTemplateStatusPoller } from "./template-status-poller.mjs";
 
 export function buildServer() {
   const server = new McpServer({
@@ -129,6 +130,10 @@ async function startHttp() {
   httpServer.listen(port, host, () => {
     const authNote = bearer ? " (Bearer auth required)" : " (no auth: set MCP_BEARER_TOKEN to require)";
     console.error(`whatsapp-business MCP listening on http://${host}:${port}${path}${authNote}`);
+    const poller = startTemplateStatusPoller();
+    console.error(poller
+      ? `Template status check running every ${poller.intervalMs / 1000}s`
+      : "Template status check off (set CLICKUP_API_TOKEN and WHATSAPP_TOKEN to enable)");
   });
 }
 
